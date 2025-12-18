@@ -1,0 +1,11 @@
+{% for subnet in vpc_config.subnets %}
+{%if subnet is defined and subnet.public == true %}
+{% if vpc_config.igw_required is defined and vpc_config.igw_required == true %}
+resource "aws_route" "{{ resource_name }}_public_route" {
+  route_table_id         = aws_route_table.rt_{{ resource_reference }}_public_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw_{{ resource_reference }}.id
+}
+{% endif %}
+{% endif %}
+{% endfor %}  

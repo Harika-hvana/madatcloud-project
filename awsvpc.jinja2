@@ -1,0 +1,55 @@
+resource "aws_vpc" "{{ resource_reference }}" {
+  cidr_block = "{{ vpc_config.vpc_cidr }}"
+
+  tags = {
+    Name = "vpc_{{ resource_name }}"
+  }
+}
+
+{% with
+ resource_reference = service_id,
+    resource_name="subnet_%s" % service_id
+    %}
+{% include "awssubnet.jinja2" %}
+{% endwith %}
+
+{% with
+ resource_reference = service_id,
+    resource_name="%s" % service_id
+    %}
+{% include "awsnatgw.jinja2" %}
+{% endwith %}
+
+{% with
+ resource_reference = service_id,
+    resource_name="igw_%s" % service_id
+    %}
+{% include "awsigw.jinja2" %}
+{% endwith %}
+
+{% with
+ resource_reference = service_id,
+    resource_name="rt_%s" % service_id
+    %}
+{% include "awsrt.jinja2" %}
+{% endwith %}
+
+{% with
+ resource_reference = service_id,
+    resource_name="route_%s" % service_id
+    %}
+{% include "awsroute.jinja2" %}
+{% endwith %}
+
+{% with
+ resource_reference = service_id,
+    resource_name="subnet_%s" % service_id
+    %}
+{% include "awsroutasso.jinja2" %}
+{% endwith %}
+
+
+
+
+
+

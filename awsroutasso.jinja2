@@ -1,0 +1,10 @@
+{% for subnet in vpc_config.subnets %}
+{%if subnet is defined and subnet.public == true %}
+{% if vpc_config.igw_required is defined and vpc_config.igw_required == true %}
+resource "aws_route_table_association" "{{ subnet.name }}_association" {
+  subnet_id      = aws_subnet.{{ resource_name }}_{{ subnet.name }}.id
+  route_table_id = aws_route_table.rt_{{ resource_reference }}_public_rt.id
+}
+{% endif %}
+{% endif %}
+{% endfor %}

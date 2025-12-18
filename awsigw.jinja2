@@ -1,0 +1,21 @@
+{% for subnet in vpc_config.subnets %}
+{%if subnet is defined and subnet.public == true %}
+resource "aws_internet_gateway" "{{ resource_name }}" {
+  vpc_id = aws_vpc.{{ resource_reference }}.id
+
+  tags = {
+    Name = "{{ resource_name }}-igw"
+  }
+
+  depends_on = [aws_vpc.{{ resource_reference }}]
+}
+{% endif %}
+{% endfor %}
+
+
+
+
+
+
+
+

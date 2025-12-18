@@ -1,0 +1,106 @@
+provider "aws" {
+    alias  = "{{ service_id }}"
+    region = "{{ service_region | default("us-east-1") }}"
+}
+{% with
+ resource_reference=service_id,
+    resource_name="lambda_execution_role_%s" % service_id
+    %}
+{% include "awsiam.jinja2" %}
+{% endwith %}
+
+{% with
+ policy_resource_reference="policy_%s" % service_id,
+    resource_name="policy_%s" % service_id
+    %}
+{% include "awsiampolicy.jinja2" %}
+{% endwith %}
+
+{% with
+    attachment_resouce_name=service_id ~ "_cw_logs_attach",
+    resource_reference=service_id,
+    policy_arn="policy_%s" % service_id
+     %}
+{% include "awsiampolicyattach.jinja2" %}
+{% endwith %}
+
+# Lambda function with logging
+resource "aws_lambda_function"  "{{ service_id }}" {
+provider = aws.{{ service_id }}
+
+
+  function_name = "{{ function_name | default('lambda_handler') }}"
+  role          =  aws_iam_role.{{ service_id}}.arn
+  handler       = "{{ handler }}"
+  runtime       = "{{ runtime }}"
+  memory_size   = "{{ memory_size }}"
+  architectures = ["{{ architectures }}"]
+ {% if size is defined and size is not none %}
+  ephemeral_storage {
+    size = "{{ size }}"
+  }
+  {% endif %}
+  timeout       = "{{ timeout }}"
+  package_type  = "Zip"
+  {% if s3_bucket is defined and s3_bucket is not none %}
+  s3_bucket     = "{{ s3_bucket }}"
+  s3_key        = "{{ s3_key }}"
+  {% endif %}
+
+        
+  {% if lambda_managed_instances.create_capacity_provider is defined and lambda_managed_instances.create_capacity_provider == True %}
+  capacity_provider_config {
+    lambda_managed_instances_capacity_provider_config {
+      capacity_provider_arn = aws_lambda_capacity_provider.cp_{{ service_id }}.arn
+    }
+  }
+  {% endif %}
+
+}
+
+  
+{% with
+ resource_reference=service_id,
+    resource_name="vpc_%s" % service_id
+     %}
+{% include "awsvpc.jinja2" %}
+{% endwith %}
+
+{% if lambda_managed_instances.create_capacity_provider is defined and lambda_managed_instances.create_capacity_provider == True %}
+resource "aws_lambda_capacity_provider" "cp_{{ service_id }}" {
+  name = "aws_lambda_capacity_provider"
+
+  vpc_config {
+    subnet_ids         = [aws_subnet.subnet_{{ service_id }}_public_subnet.id]
+    security_group_ids = [aws_security_group.sg_{{ service_id | replace('-', '_') }}_app_sg.id]
+  }
+
+  permissions_config {
+    capacity_provider_operator_role_arn = aws_iam_role.capacity_provider_{{ service_id }}.arn
+  }
+}
+
+{% endif %} 
+
+
+{% with
+ role_policy_resource_reference="capacity_provider_%s" % service_id,
+    resource_name="capacity_provider_%s" % service_id,
+    resource_reference="capacity_provider_%s" % service_id
+    %}
+{% include "awsiamrolepolicy.jinja2" %}
+{% endwith %}
+
+{% with
+ resource_reference="capacity_provider_%s" % service_id,
+    resource_name="capacity_provider_role_%s" % service_id
+    %}
+{% include "awsiam.jinja2" %}
+{% endwith %}
+
+
+
+
+
+
+

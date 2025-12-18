@@ -1,0 +1,31 @@
+{% for subnet in vpc_config.subnets %}
+{%if subnet.public is defined and subnet.public == true %}
+resource "aws_subnet" "{{ resource_name }}_{{ subnet.name }}" {
+  vpc_id                  = aws_vpc.{{ resource_reference }}.id
+  cidr_block              = "{{ subnet.cidr }}"
+  availability_zone       = "{{ subnet.az }}"
+
+
+  tags = {
+    Name = "{{ subnet.name }}"
+  }
+
+  depends_on = [aws_vpc.{{ resource_reference }}]
+}
+{% endif %}
+
+{%if subnet.private is defined and subnet.private == true %}
+resource "aws_subnet" "{{ resource_name }}_{{ subnet.name }}" {
+  vpc_id                  = aws_vpc.{{ resource_reference }}.id
+  cidr_block              = "{{ subnet.cidr }}"
+  availability_zone       = "{{ subnet.az }}"
+
+
+  tags = {
+    Name = "{{ subnet.name }}"
+  }
+
+  depends_on = [aws_vpc.{{ resource_reference }}]
+}
+{% endif %}
+{% endfor %}  

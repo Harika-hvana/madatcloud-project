@@ -1,0 +1,54 @@
+{% for subnet in vpc_config.subnets %}
+{%if subnet is defined and subnet.private == true %}
+resource "aws_eip" "{{ resource_reference }}_nat_eip" {
+  domain = "vpc"
+
+  tags = {
+    Name = "{{ resource_name }}-nat-eip"
+  }
+}
+
+{% if vpc_config.nat_required is defined and vpc_config.nat_required == true %}
+resource "aws_nat_gateway" "{{ resource_reference }}_nat" {
+  allocation_id = aws_eip.{{ resource_reference }}_nat_eip.id
+  subnet_id     = aws_subnet.subnet_{{ resource_reference }}_{{ subnet.name }}.id
+
+  tags = {
+    Name = "{{ resource_name }}-nat"
+  }
+
+  depends_on = [
+    aws_internet_gateway.{{ resource_name }},
+    aws_subnet.{{ resource_name }}_{{ subnet.name }}
+  ]
+}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+{% if vpc_config.nat_required is defined and vpc_config.nat_required == true %}
+resource "aws_route_table" "{{ resource_name}}_private_rt" {
+  vpc_id = aws_vpc.{{ resource_reference }}.id
+
+  tags = {
+    Name = "{{ resource_name }}-private-rt"
+  }
+
+  depends_on = [aws_internet_gateway.{{ resource_name }}]
+}
+
+resource "aws_route" "{{ resource_reference }}_nat_route" {
+  route_table_id         = aws_route_table.{{ resource_name}}_private_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.{{ resource_reference }}_nat.id
+}
+
+{% for subnet in vpc_config.subnets %}
+{%if subnet is defined and subnet.private == true %}
+resource "aws_route_table_association" "{{ subnet.name }}_private_association" {
+  subnet_id      = aws_subnet.subnet_{{ resource_name }}_{{ subnet.name }}.id
+  route_table_id = aws_route_table.{{ resource_name }}_private_rt.id
+}
+{% endif %}
+{% endfor %}
+{% endif %}

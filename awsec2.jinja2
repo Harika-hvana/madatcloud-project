@@ -1,0 +1,101 @@
+provider "aws" {
+  alias  = "{{ service_id }}"
+  region = "{{ service_region | default("us-east-1") }}"
+}
+
+{% if create_new_vpc is defined and create_new_vpc == True %}
+{% with
+ resource_reference=service_id,
+    resource_name="vpc_%s" % service_id
+    %}
+{% include "awsvpc.jinja2" %}
+{% endwith %}
+{% endif %}
+
+{% if vpc is defined and vpc is not none %}
+{% with
+ resource_reference = service_id,
+    resource_name="sg_%s" % service_id
+    %}
+{% include "awssecuritygroup.jinja2" %}
+{% endwith %}
+{% endif %}
+
+
+
+{% if key_pair is not defined or key_pair is none %}
+# Generate a new SSH key pair if not provided
+resource "tls_private_key" "{{ service_id }}_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "{{ service_id }}_keypair" {
+  provider   = aws.{{ service_id }}
+  key_name   = "{{ instance_name | default('ec2-instance') }}-key"
+  public_key = tls_private_key.{{ service_id }}_key.public_key_openssh
+
+  tags = {
+    Name       = "{{ instance_name | default('ec2-instance') }}-key"
+    CreatedBy  = "MadatCloud"
+  }
+}
+{% endif %}
+
+
+resource "aws_instance" "{{ service_id }}" {
+  provider = aws.{{ service_id }}
+
+  ami                         = "{{ instance_image | default("ami-03695d52f0d883f65") }}"
+  instance_type               = "{{ instance_type | default("t3.micro") }}"
+  {% if key_pair is defined and key_pair is not none %}
+  key_name                    = "{{ key_pair }}"
+  {% else %}
+  key_name                    = aws_key_pair.{{ service_id }}_keypair.key_name
+  {% endif %}
+  {% if subnet is defined and subnet is not none %}
+  subnet_id                   = aws_subnet.subnet_{{ service_id }}_public_subnet.id
+
+  {% endif %}
+  {% if vpc is defined and vpc is not none %}
+  vpc_security_group_ids      = [aws_security_group.sg_{{ service_id | replace('-', '_') }}_app_sg.id]
+  {% endif %}
+
+  associate_public_ip_address  = {{ auto_assign_public_ip | default(true) | lower }}
+
+  {% if user_data is defined and user_data is not none %}
+  user_data = <<-EOT
+  {{ user_data | indent(4) }}
+  EOT
+  {% elif user_data_base64 is defined and user_data_base64 is not none %}
+  user_data_base64 = "{{ user_data_base64 }}"
+  {% endif %}
+
+  {% if storage_volumes is defined and storage_volumes | length > 0 %}  
+  root_block_device {
+    {% for volume in storage_volumes %}
+    volume_type = "{{ volume.type | default('gp3') }}"
+    volume_size = {{ volume.size | default(8) }}
+    delete_on_termination = {{ volume.delete_on_termination | default(true) | lower }}
+    {% endfor %}
+  }
+  {% endif %}
+
+  tags = {
+    Name = "{{ instance_name | default('ec2-instance') }}"
+    CreatedBy = "MadatCloud"
+    {% if tags is defined and tags | length > 0 %}
+    {% for tag in tags %}
+    "{{ tag.key }}" = "{{ tag.value }}"
+    {% endfor %}
+    {% endif %}
+  }
+}
+
+{% if key_pair is not defined or key_pair is none %}
+# Export the generated private key for external use
+output "{{ service_id }}_private_key" {
+  value     = tls_private_key.{{ service_id }}_key.private_key_pem
+  sensitive = true
+}
+{% endif %}
