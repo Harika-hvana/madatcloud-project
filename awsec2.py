@@ -52,8 +52,6 @@ ec2config={
     "instance_image": "ami-068c0051b15cdb816",
     "instance_type": "t3.micro", #x86_64 
     "auto_assign_public_ip": True,
-    "subnet_id":"null",
-    "vpc":"null",
     "user_data": "#!/bin/bash\nyum update -y\nyum install -y httpd\nsystemctl start httpd\nsystemctl enable httpd",
     "storage_volumes": [
       {
